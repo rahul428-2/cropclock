@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CropClock Dashboard</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,0.10); --good: #006300;
+  --rota: #eb6834; --sched: #1baf7a; --cc: #2a78d6; --solar: #eda100; --rain: #b5b3ab;
+  --deficit-0: #fbe3d8; --deficit-1: #9c3a12; --off: #f0efec;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10); --good: #0ca30c;
+    --rota: #d95926; --sched: #199e70; --cc: #3987e5; --solar: #c98500; --rain: #5a5955;
+    --deficit-0: #3a2418; --deficit-1: #f08a5d; --off: #262624;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10); --good: #0ca30c;
+  --rota: #d95926; --sched: #199e70; --cc: #3987e5; --solar: #c98500; --rain: #5a5955;
+  --deficit-0: #3a2418; --deficit-1: #f08a5d; --off: #262624;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 64px; }
+header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; justify-content: space-between; }
+h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+h2 { font-size: 15px; margin: 0 0 2px; }
+.sub { color: var(--ink-2); margin: 2px 0 0; }
+.note { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+.seg { display: inline-flex; border: 1px solid var(--ring); border-radius: 8px; overflow: hidden; }
+.seg button { font: inherit; border: 0; background: var(--surface); color: var(--ink-2);
+  padding: 6px 14px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--page); }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 20px 0; }
+.card { background: var(--surface); border: 1px solid var(--ring); border-radius: 12px; padding: 16px; min-width: 0; }
+.kpi .label { color: var(--ink-2); font-size: 13px; }
+.kpi .value { font-size: 30px; font-weight: 600; letter-spacing: -0.02em; margin-top: 2px; }
+.kpi .delta { font-size: 13px; color: var(--ink-2); }
+.kpi .delta b { color: var(--good); font-weight: 600; }
+.row { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 12px; margin-bottom: 12px; }
+@media (max-width: 860px) { .row { grid-template-columns: minmax(0, 1fr); } }
+.stack > * + * { margin-top: 12px; }
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+svg text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+svg .ink { fill: var(--ink-2); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--ink-2); font-size: 12px; margin: 8px 0 4px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.legend i.line { height: 2px; border-radius: 1px; vertical-align: 3px; width: 14px; }
+.daybar { display: flex; gap: 12px; align-items: center; margin-top: 12px; }
+.daybar input { flex: 1; accent-color: var(--cc); }
+.daybar output { font-variant-numeric: tabular-nums; min-width: 92px; color: var(--ink-2); }
+#tip { position: fixed; pointer-events: none; z-index: 10; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--ring); border-radius: 8px; padding: 8px 10px; font-size: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12); display: none; max-width: 260px; }
+#tip b { font-weight: 600; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--ink-2); font-weight: 500; }
+.tablewrap { overflow-x: auto; }
+.map { position: relative; border-radius: 8px; overflow: hidden; background: var(--off); aspect-ratio: 2 / 1; }
+.map img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; image-rendering: pixelated; }
+.map svg { position: absolute; inset: 0; height: 100%; }
+details { color: var(--ink-2); }
+summary { cursor: pointer; color: var(--ink); font-weight: 600; }
+ul { padding-left: 18px; }
+.hit { fill: transparent; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>CropClock</h1>
+      <p class="sub">Solar-aligned, crop-aware agricultural feeder scheduling · 8 feeders × 500 ha, west of Solapur, Maharashtra</p>
+    </div>
+    <div class="seg" role="group" aria-label="Season">
+      <button data-season="rabi" aria-pressed="true">Rabi 2025-26</button>
+      <button data-season="kharif" aria-pressed="false">Kharif 2025</button>
+    </div>
+  </header>
+
+  <section class="kpis" id="kpis"></section>
+
+  <div class="row">
+    <div class="card">
+      <h2>Crop water deficit by feeder</h2>
+      <p class="note" id="mapnote"></p>
+      <div class="map" id="map"><img id="ndvi" alt=""><svg id="mapsvg" viewBox="0 0 400 200" preserveAspectRatio="none"></svg></div>
+      <div class="legend" id="maplegend"></div>
+      <div class="daybar">
+        <input type="range" id="day" min="0" value="0" aria-label="Day">
+        <output id="daylabel"></output>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Feeder supply on this day</h2>
+      <p class="note">Each row is a feeder, each column an hour. Filled = energised. The yellow band is the substation's solar output.</p>
+      <div class="stack">
+        <div><div class="legend"><span><i style="background:var(--rota)"></i>MSEDCL rota</span></div><svg id="sched-rota"></svg></div>
+        <div><div class="legend"><span><i style="background:var(--cc)"></i>CropClock</span></div><svg id="sched-cc"></svg></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px">
+    <h2>Energy bought from the grid, cumulative</h2>
+    <p class="note">Pump energy not covered by the feeders' own solar plants (8 × 1 MW), summed hour by hour.</p>
+    <div class="legend">
+      <span><i class="line" style="background:var(--rota)"></i>MSEDCL rota</span>
+      <span><i class="line" style="background:var(--sched)"></i>Scheduler only</span>
+      <span><i class="line" style="background:var(--cc)"></i>CropClock (scheduler + rain-skip)</span>
+    </div>
+    <svg id="cum"></svg>
+  </div>
+
+  <div class="card" style="margin-bottom:12px">
+    <h2>Rainfall: observed vs. day-ahead forecast</h2>
+    <p class="note" id="rainnote"></p>
+    <div class="legend">
+      <span><i style="background:var(--rain)"></i>Observed rain (mm)</span>
+      <span><i class="line" style="background:var(--ink)"></i>Forecast issued the day before (mm)</span>
+      <span><i style="background:var(--cc);border-radius:50%"></i>Irrigation deferred by CropClock</span>
+    </div>
+    <svg id="rain"></svg>
+  </div>
+
+  <div class="card" style="margin-bottom:12px">
+    <h2>Season results</h2>
+    <div class="tablewrap"><table id="results"></table></div>
+    <p class="note" id="tiernote"></p>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>Method, data and limits</summary>
+      <ul>
+        <li><b>Crop demand.</b> Sentinel-2 L2A over the 8 feeder areas, every pass with &lt;30% cloud (28 dates, Oct 2025 – Mar 2026), cloud-masked with the scene classification layer. Feeder-mean NDVI → crop coefficient, Kc = 1.457·NDVI − 0.1725 (Kamble, Kilic &amp; Hubbard 2013), × FAO-56 reference ET.</li>
+        <li><b>Weather.</b> Open-Meteo ERA5 archive for observed rain, ET₀ and hourly irradiance. Open-Meteo previous-runs API for the forecasts that were actually issued 1 and 2 days ahead. Rain-skip is scored against what actually fell, so a false alarm costs the crop a day.</li>
+        <li><b>Feeder.</b> 250 × 7.5 HP pumps on a 50 m borewell (0.341 kWh/m³), 980 kW coincident load, 1 MW MSKVY solar each. Substation cap: 4 feeders at full load. Every feeder keeps its 8 h/day entitlement.</li>
+        <li><b>Rota baseline.</b> Feeders 1–4 on 08–16 and 5–8 on 22–06, swapping weekly (MSEDCL day/night rotation).</li>
+        <li><b>Kharif.</b> Monsoon cloud left ~3 usable Sentinel-2 passes, so kharif uses the FAO-56 soybean stage calendar. Its farmer waters defensively: a fixed 60 mm every 12 days (Tier B). Rabi uses an ET-optimal farmer (Tier A, no behavioural assumption).</li>
+        <li><b>Limits.</b> Feeder command areas are approximated as 500 ha squares: DISCOMs hold the real feeder→field mapping. Outputs are feeder-level aggregates, never plot-level claims.</li>
+      </ul>
+    </details>
+  </div>
+</main>
+<div id="tip" role="tooltip"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const NS = "http://www.w3.org/2000/svg";
+const el = (tag, attrs = {}, parent) => {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+};
+const fmt = (x, d = 0) => x.toLocaleString("en-IN", { maximumFractionDigits: d, minimumFractionDigits: d });
+const dayName = s => new Date(s + "T00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+
+const tip = $("#tip");
+function showTip(ev, html) {
+  tip.innerHTML = html; tip.style.display = "block";
+  const x = Math.min(ev.clientX + 14, innerWidth - tip.offsetWidth - 8);
+  const y = Math.min(ev.clientY + 14, innerHeight - tip.offsetHeight - 8);
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+}
+const hideTip = () => (tip.style.display = "none");
+
+let SIM, NDVI, season = "rabi", day = 0;
+
+Promise.all([fetch("out/sim.json").then(r => r.json()), fetch("out/ndvi.json").then(r => r.json())])
+  .then(([s, n]) => { SIM = s; NDVI = n; pickSeason("rabi"); });
+
+document.querySelectorAll(".seg button").forEach(b => b.onclick = () => pickSeason(b.dataset.season));
+$("#day").oninput = e => { day = +e.target.value; drawDay(); };
+
+function pickSeason(s) {
+  season = s;
+  document.querySelectorAll(".seg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.season === s));
+  const S = SIM[s];
+  // open on the day CropClock buys the least grid energy relative to the rota
+  const grid = (run, i) => S[run].load_kw[i].reduce((a, kw, h) => a + kw - Math.min(kw, S.solar_kw[i][h]), 0);
+  const gain = S.days.map((_, i) => grid("rota", i) - grid("cropclock", i));
+  day = gain.indexOf(Math.max(...gain));
+  $("#day").max = S.days.length - 1; $("#day").value = day;
+  drawKpis(); drawCum(); drawRain(); drawTable(); drawDay();
+}
+
+function drawKpis() {
+  const S = SIM[season], r = S.rota.summary, c = S.cropclock.summary, h = S.headline;
+  const tiles = [
+    ["Grid energy avoided", `${fmt(h.grid_mwh_saved)} MWh`, `<b>−${fmt(h.grid_pct_saved, 1)}%</b> vs rota, 8 feeders, one season`],
+    ["Subsidy avoided", `₹${fmt(h.subsidy_saved_lakh_rs, 1)} lakh`, `at ₹${SIM.params.cost_of_supply_rs_kwh}/kWh cost of supply`],
+    ["Pumping at night", `${fmt(c.night_share_pct, 1)}%`, `<b>from ${fmt(r.night_share_pct, 1)}%</b> under the rota (19:00–06:00)`],
+    ["Pump energy from solar", `${fmt(c.solar_share_pct, 1)}%`, `<b>from ${fmt(r.solar_share_pct, 1)}%</b>, same solar plants`],
+  ];
+  $("#kpis").innerHTML = tiles.map(([l, v, d]) =>
+    `<div class="card kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="delta">${d}</div></div>`).join("");
+}
+
+function nearestNdvi(date) {
+  if (season !== "rabi") return null;
+  const t = new Date(date).getTime();
+  let best = null, bd = Infinity;
+  for (const d of NDVI.dates) {
+    const dd = Math.abs(new Date(d).getTime() - t);
+    if (dd < bd) { bd = dd; best = d; }
+  }
+  return best;
+}
+
+function mix(a, b, t) {   // sequential ramp: one hue, light -> dark
+  return `color-mix(in oklab, ${b} ${Math.round(t * 100)}%, ${a})`;
+}
+
+function drawMap() {
+  const S = SIM[season], svg = $("#mapsvg");
+  svg.innerHTML = "";
+  const nd = nearestNdvi(S.days[day]);
+  const img = $("#ndvi");
+  if (nd) { img.src = `out/ndvi/${nd}.png`; img.style.display = ""; }
+  else img.style.display = "none";
+  $("#mapnote").textContent = nd
+    ? `Sentinel-2 NDVI from ${dayName(nd)} (red = bare, green = growing crop). Each cell is one feeder's command area; outline thickness = soil water deficit.`
+    : "Monsoon cloud blocks Sentinel-2 in kharif. Cells show soil water deficit from the FAO-56 stage model.";
+  const dep = S.cropclock.depletion_frac[day];
+  const lo = css("--deficit-0"), hi = css("--deficit-1");
+  SIM.feeders.forEach((f, i) => {
+    const r = Math.floor(i / 4), c = i % 4, x = c * 100, y = r * 100;
+    const t = Math.min(dep[i], 1.2) / 1.2;
+    const g = el("g", {}, svg);
+    el("rect", { x: x + 2, y: y + 2, width: 96, height: 96, rx: 4,
+      fill: nd ? "transparent" : mix(lo, hi, t), stroke: nd ? mix(lo, hi, t) : "var(--surface)",
+      "stroke-width": nd ? 2 + 6 * t : 2, "vector-effect": "non-scaling-stroke" }, g);
+    g.onmousemove = ev => showTip(ev, `<b>${f}</b> · ${dayName(S.days[day])}<br>Soil water deficit: ${fmt(dep[i] * SIM.params.raw_mm)} mm (${fmt(dep[i] * 100)}% of the irrigation trigger)<br>Crop coefficient Kc: ${S.kc[i][day].toFixed(2)}`);
+    g.onmouseleave = hideTip;
+  });
+  const labels = $("#map").querySelectorAll(".flabel");
+  labels.forEach(l => l.remove());
+  SIM.feeders.forEach((f, i) => {
+    const d = document.createElement("div");
+    d.className = "flabel";
+    d.textContent = f;
+    Object.assign(d.style, { position: "absolute", left: `${(i % 4) * 25 + 1.5}%`, top: `${Math.floor(i / 4) * 50 + 3}%`,
+      font: "600 12px system-ui", color: "#fff", textShadow: "0 1px 2px rgba(0,0,0,.7)", pointerEvents: "none" });
+    $("#map").appendChild(d);
+  });
+  $("#maplegend").innerHTML =
+    `<span>Deficit</span><span style="display:inline-block;width:120px;height:10px;border-radius:3px;background:linear-gradient(90deg,${lo},${hi})"></span><span>0 → 1.2× trigger (${SIM.params.raw_mm} mm)</span>`;
+}
+
+function drawSchedule(svg, run, colorVar) {
+  const S = SIM[season], W = 640, rowH = 16, top = 30, left = 28, nf = SIM.feeders.length;
+  const H = top + nf * rowH + 22, cw = (W - left) / 24;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.innerHTML = "";
+  const solar = S.solar_kw[day], peak = Math.max(1, ...S.solar_kw.map(r => Math.max(...r)));
+  // solar band above the grid, own scale (kW of generation)
+  let p = `M${left},${top - 4}`;
+  solar.forEach((kw, h) => { p += ` L${left + h * cw + cw / 2},${top - 4 - kw / peak * 22}`; });
+  p += ` L${W},${top - 4} Z`;
+  el("path", { d: p, fill: css("--solar"), opacity: 0.55 }, svg);
+  const mask = S[run].schedule[day], load = S[run].load_kw[day];
+  for (let f = 0; f < nf; f++) {
+    el("text", { x: 0, y: top + f * rowH + 12, class: "ink" }, svg).textContent = SIM.feeders[f];
+    for (let h = 0; h < 24; h++) {
+      const on = (mask[h] >> f) & 1;
+      el("rect", { x: left + h * cw + 1, y: top + f * rowH + 1, width: cw - 2, height: rowH - 2, rx: 3,
+        fill: on ? css(colorVar) : css("--off") }, svg);
+    }
+  }
+  for (let h = 0; h < 24; h += 3)
+    el("text", { x: left + h * cw + cw / 2, y: H - 6, "text-anchor": "middle" }, svg).textContent = String(h).padStart(2, "0");
+  for (let h = 0; h < 24; h++) {   // one hit target per hour column
+    const r = el("rect", { x: left + h * cw, y: 0, width: cw, height: H, class: "hit" }, svg);
+    r.onmousemove = ev => {
+      const on = SIM.feeders.filter((_, f) => (mask[h] >> f) & 1);
+      const served = Math.min(load[h], solar[h]);
+      showTip(ev, `<b>${String(h).padStart(2, "0")}:00–${String(h + 1).padStart(2, "0")}:00</b><br>On: ${on.join(", ") || "none"}<br>Pump load ${fmt(load[h])} kW · solar ${fmt(solar[h])} kW<br>Bought from grid: ${fmt(load[h] - served)} kWh`);
+    };
+    r.onmouseleave = hideTip;
+  }
+}
+
+function drawDay() {
+  const S = SIM[season];
+  $("#daylabel").textContent = dayName(S.days[day]);
+  drawMap();
+  drawSchedule($("#sched-rota"), "rota", "--rota");
+  drawSchedule($("#sched-cc"), "cropclock", "--cc");
+}
+
+function axes(svg, W, H, m, x, y, yTicks, yFmt, days) {
+  yTicks.forEach(v => {
+    el("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: css("--grid") }, svg);
+    el("text", { x: m.l - 6, y: y(v) + 4, "text-anchor": "end" }, svg).textContent = yFmt(v);
+  });
+  el("line", { x1: m.l, x2: W - m.r, y1: H - m.b, y2: H - m.b, stroke: css("--axis") }, svg);
+  days.forEach((d, i) => {
+    if (d.endsWith("-01"))
+      el("text", { x: x(i), y: H - m.b + 16, "text-anchor": "middle" }, svg).textContent =
+        new Date(d + "T00:00").toLocaleDateString("en-IN", { month: "short" });
+  });
+}
+
+function niceTicks(max, n = 4) {
+  const step = Math.pow(10, Math.floor(Math.log10(max / n)));
+  const s = [1, 2, 2.5, 5, 10].map(k => k * step).find(k => max / k <= n) || step * 10;
+  const t = []; for (let v = 0; v <= max + 1e-9; v += s) t.push(v);
+  if (t[t.length - 1] < max) t.push(t[t.length - 1] + s);
+  return t;
+}
+
+function drawCum() {
+  const S = SIM[season], svg = $("#cum"), W = 1100, H = 280, m = { l: 56, r: 150, t: 12, b: 26 };
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.innerHTML = "";
+  const runs = [["rota", "--rota", "Rota"], ["scheduler", "--sched", "Scheduler only"], ["cropclock", "--cc", "CropClock"]];
+  const cum = {};
+  for (const [k] of runs) {
+    let acc = 0;
+    cum[k] = S[k].load_kw.map((row, i) => {
+      row.forEach((kw, h) => { acc += kw - Math.min(kw, S.solar_kw[i][h]); });
+      return acc / 1000;
+    });
+  }
+  const n = S.days.length, max = Math.max(...cum.rota);
+  const ticks = niceTicks(max);
+  const x = i => m.l + i / (n - 1) * (W - m.l - m.r), y = v => H - m.b - v / ticks[ticks.length - 1] * (H - m.t - m.b);
+  axes(svg, W, H, m, x, y, ticks, v => `${fmt(v)} MWh`, S.days);
+  const ends = [];
+  for (const [k, c, label] of runs) {
+    el("path", { d: cum[k].map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(""),
+      fill: "none", stroke: css(c), "stroke-width": 2, "stroke-linejoin": "round" }, svg);
+    ends.push([y(cum[k][n - 1]), `${label} ${fmt(cum[k][n - 1])}`, c]);
+  }
+  ends.sort((a, b) => a[0] - b[0]);
+  for (let i = 1; i < ends.length; i++) ends[i][0] = Math.max(ends[i][0], ends[i - 1][0] + 14);
+  ends.forEach(([yy, t]) => { el("text", { x: W - m.r + 8, y: yy + 4, class: "ink" }, svg).textContent = t; });
+  const cross = el("line", { y1: m.t, y2: H - m.b, stroke: css("--axis"), visibility: "hidden" }, svg);
+  const hit = el("rect", { x: m.l, y: 0, width: W - m.l - m.r, height: H, class: "hit" }, svg);
+  hit.onmousemove = ev => {
+    const b = svg.getBoundingClientRect(), px = (ev.clientX - b.left) / b.width * W;
+    const i = Math.max(0, Math.min(n - 1, Math.round((px - m.l) / (W - m.l - m.r) * (n - 1))));
+    cross.setAttribute("x1", x(i)); cross.setAttribute("x2", x(i)); cross.setAttribute("visibility", "visible");
+    showTip(ev, `<b>${dayName(S.days[i])}</b><br>` + runs.map(([k, c, l]) =>
+      `<span style="color:${css(c)}">■</span> ${l}: ${fmt(cum[k][i])} MWh`).join("<br>") +
+      `<br>Saved so far: <b>${fmt(cum.rota[i] - cum.cropclock[i])} MWh</b>`);
+  };
+  hit.onmouseleave = () => { hideTip(); cross.setAttribute("visibility", "hidden"); };
+}
+
+function drawRain() {
+  const S = SIM[season], svg = $("#rain"), W = 1100, H = 200, m = { l: 56, r: 150, t: 12, b: 26 };
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.innerHTML = "";
+  const n = S.days.length, max = Math.max(...S.rain_mm, ...S.rain_fc_mm, 1);
+  const ticks = niceTicks(max, 3);
+  const x = i => m.l + (i + 0.5) / n * (W - m.l - m.r), y = v => H - m.b - v / ticks[ticks.length - 1] * (H - m.t - m.b);
+  axes(svg, W, H, m, x, y, ticks, v => `${fmt(v)} mm`, S.days);
+  const bw = Math.max(1, (W - m.l - m.r) / n - 2);
+  S.rain_mm.forEach((v, i) => {
+    if (v > 0) el("rect", { x: x(i) - bw / 2, y: y(v), width: bw, height: H - m.b - y(v), rx: Math.min(2, bw / 2), fill: css("--rain") }, svg);
+  });
+  el("path", { d: S.rain_fc_mm.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(""),
+    fill: "none", stroke: css("--ink"), "stroke-width": 1.5 }, svg);
+  const dfr = S.cropclock.deferrals, byDay = {};
+  dfr.forEach(d => (byDay[d.date] = byDay[d.date] || []).push(d));
+  Object.entries(byDay).forEach(([d, list]) => {
+    const i = S.days.indexOf(d);
+    el("circle", { cx: x(i), cy: m.t + 2, r: 4, fill: css("--cc"), stroke: css("--surface"), "stroke-width": 2 }, svg);
+  });
+  const hit = el("rect", { x: m.l, y: 0, width: W - m.l - m.r, height: H, class: "hit" }, svg);
+  hit.onmousemove = ev => {
+    const b = svg.getBoundingClientRect(), px = (ev.clientX - b.left) / b.width * W;
+    const i = Math.max(0, Math.min(n - 1, Math.floor((px - m.l) / (W - m.l - m.r) * n)));
+    const dd = byDay[S.days[i]];
+    showTip(ev, `<b>${dayName(S.days[i])}</b><br>Observed ${fmt(S.rain_mm[i], 1)} mm · forecast ${fmt(S.rain_fc_mm[i], 1)} mm` +
+      (dd ? `<br>Deferred: ${dd.map(d => d.feeder).join(", ")} (48 h forecast ${dd[0].forecast_mm} mm, ${dd[0].observed_mm} mm fell)` : ""));
+  };
+  hit.onmouseleave = hideTip;
+  const hits = dfr.filter(d => d.hit).length;
+  $("#rainnote").textContent = dfr.length
+    ? `${dfr.length} irrigations deferred because ≥${SIM.params.rain_skip_mm} mm was forecast within 48 h; rain followed in ${hits} of ${dfr.length}.`
+    : `No irrigation was due during a forecast rain spell this season. Rabi's ${fmt(S.rain_mm.reduce((a, b) => a + b, 0))} mm of rain fell in October, before any field reached the irrigation trigger, so here the saving is all solar alignment.`;
+}
+
+function drawTable() {
+  const S = SIM[season];
+  const rows = [
+    ["Pump energy", "pump_mwh", v => `${fmt(v)} MWh`],
+    ["Bought from grid", "grid_mwh", v => `${fmt(v)} MWh`],
+    ["Share from feeder solar", "solar_share_pct", v => `${fmt(v, 1)}%`],
+    ["Share pumped at night", "night_share_pct", v => `${fmt(v, 1)}%`],
+    ["Peak substation load", "peak_substation_mw", v => `${fmt(v, 2)} MW`],
+    ["Feeder-days above irrigation trigger", "stress_feeder_days", v => fmt(v)],
+    ["Water lost below root zone", "deep_percolation_mm", v => `${fmt(v, 1)} mm`],
+    ["Irrigations deferred for rain", "deferrals", v => fmt(v)],
+  ];
+  $("#results").innerHTML = `<thead><tr><th></th><th>MSEDCL rota</th><th>Scheduler only</th><th>CropClock</th></tr></thead><tbody>` +
+    rows.map(([l, k, f]) => `<tr><td>${l}</td>${["rota", "scheduler", "cropclock"].map(r => `<td>${f(S[r].summary[k])}</td>`).join("")}</tr>`).join("") +
+    `</tbody>`;
+  $("#tiernote").textContent = S.farmer === "et"
+    ? "Tier A: the farmer irrigates only when the soil reaches the FAO-56 trigger in all three runs. Total pumping is identical; only the timing changes."
+    : "Tier B: the farmer waters defensively (60 mm every 12 days) in all three runs. Rain-skip holds back the feeder when the 48 h forecast says ≥15 mm.";
+}
+
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => SIM && pickSeason(season));
+</script>
+</body>
+</html>

@@ -1,0 +1,753 @@
+<title>CropClock</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Devanagari:wght@400;500&family=IBM+Plex+Serif:wght@600;700&display=swap">
+<style>
+  :root{
+    --ground:#F7F8F4;
+    --sheet:#FFFFFF;
+    --ink:#14201A;
+    --ink-soft:#55635B;
+    --ink-faint:#8A968E;
+    --rule:#DDE2D8;
+    --rule-soft:#EBEEE7;
+    --canopy:#2E7D4F;
+    --canopy-wash:#E4EFE7;
+    --deficit:#C2571A;
+    --deficit-wash:#F7E7DC;
+    --solar:#E0A924;
+    --solar-wash:#FAF0D8;
+    --shadow:0 1px 2px rgba(20,32,26,.06), 0 8px 24px rgba(20,32,26,.05);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ground:#0B120F;
+      --sheet:#131C18;
+      --ink:#E8EDE6;
+      --ink-soft:#A2B0A7;
+      --ink-faint:#6C7A71;
+      --rule:#2A3630;
+      --rule-soft:#1E2A24;
+      --canopy:#5FB77F;
+      --canopy-wash:#1B2F23;
+      --deficit:#E38249;
+      --deficit-wash:#332115;
+      --solar:#EFC04A;
+      --solar-wash:#312716;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 28px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0B120F;
+    --sheet:#131C18;
+    --ink:#E8EDE6;
+    --ink-soft:#A2B0A7;
+    --ink-faint:#6C7A71;
+    --rule:#2A3630;
+    --rule-soft:#1E2A24;
+    --canopy:#5FB77F;
+    --canopy-wash:#1B2F23;
+    --deficit:#E38249;
+    --deficit-wash:#332115;
+    --solar:#EFC04A;
+    --solar-wash:#312716;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 28px rgba(0,0,0,.35);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--ground);
+    color:var(--ink);
+    font-family:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;
+    font-size:15px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .deck{
+    display:flex;
+    flex-direction:column;
+    gap:28px;
+    padding:36px 20px 72px;
+    max-width:1180px;
+    margin:0 auto;
+  }
+  .slide{
+    position:relative;
+    background:var(--sheet);
+    border:1px solid var(--rule);
+    border-radius:3px;
+    box-shadow:var(--shadow);
+    aspect-ratio:16/9;
+    padding:52px 60px 46px;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  .eyebrow{
+    font-family:"IBM Plex Mono",ui-monospace,monospace;
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--ink-faint);
+  }
+  h1,h2{
+    font-family:"IBM Plex Serif",Georgia,serif;
+    font-weight:600;
+    text-wrap:balance;
+    margin:0;
+    letter-spacing:-.012em;
+  }
+  h2{font-size:34px;line-height:1.14;}
+  .slide > h2{margin:14px 0 0;}
+  .lede{
+    font-size:17px;
+    color:var(--ink-soft);
+    max-width:62ch;
+    margin:12px 0 0;
+  }
+  .body-col{max-width:64ch;}
+  p{margin:0 0 12px;}
+  strong{font-weight:600;color:var(--ink);}
+  .num{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;}
+
+  .foot{
+    margin-top:auto;
+    padding-top:18px;
+    border-top:1px solid var(--rule-soft);
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    font-family:"IBM Plex Mono",ui-monospace,monospace;
+    font-size:10.5px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--ink-faint);
+  }
+
+  /* ---- title slide ---- */
+  .title-slide{justify-content:center;}
+  .title-slide h1{font-size:66px;line-height:1.02;letter-spacing:-.028em;}
+  .title-rule{width:64px;height:3px;background:var(--canopy);margin:26px 0 22px;}
+  .title-sub{font-size:20px;color:var(--ink-soft);max-width:44ch;font-family:"IBM Plex Serif",Georgia,serif;}
+  .title-meta{margin-top:30px;display:flex;gap:26px;flex-wrap:wrap;}
+  .title-meta span{
+    font-family:"IBM Plex Mono",ui-monospace,monospace;
+    font-size:11.5px;letter-spacing:.06em;color:var(--ink-faint);
+  }
+
+  /* ---- stat row ---- */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin:26px 0 4px;}
+  .stat{padding-right:26px;border-left:1px solid var(--rule);padding-left:20px;}
+  .stat:first-child{border-left:0;padding-left:0;}
+  .stat b{
+    display:block;
+    font-family:"IBM Plex Mono",ui-monospace,monospace;
+    font-variant-numeric:tabular-nums;
+    font-size:38px;font-weight:500;line-height:1;color:var(--ink);
+  }
+  .stat span{display:block;margin-top:8px;font-size:13px;color:var(--ink-soft);line-height:1.35;}
+  .stat em{display:block;margin-top:5px;font-style:normal;font-size:11px;color:var(--ink-faint);font-family:"IBM Plex Mono",ui-monospace,monospace;}
+
+  /* ---- generic lists ---- */
+  ul.clean{list-style:none;padding:0;margin:16px 0 0;display:flex;flex-direction:column;gap:9px;}
+  ul.clean li{padding-left:18px;position:relative;color:var(--ink-soft);max-width:70ch;}
+  ul.clean li::before{
+    content:"";position:absolute;left:0;top:.62em;
+    width:6px;height:1px;background:var(--canopy);
+  }
+  ul.clean li b{color:var(--ink);font-weight:600;}
+
+  /* ---- pull quote ---- */
+  .pull{
+    margin:22px 0 0;
+    padding:22px 26px;
+    background:var(--canopy-wash);
+    border-left:3px solid var(--canopy);
+    font-family:"IBM Plex Serif",Georgia,serif;
+    font-size:26px;line-height:1.24;
+    color:var(--ink);
+    text-wrap:balance;
+  }
+
+  /* ---- two-column compare ---- */
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:20px;border-top:1px solid var(--rule);}
+  .compare > div{padding:18px 24px 16px;border-right:1px solid var(--rule);}
+  .compare > div:last-child{border-right:0;}
+  .compare h3{
+    margin:0 0 12px;font-size:13px;font-weight:600;
+    font-family:"IBM Plex Mono",ui-monospace,monospace;
+    letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);
+  }
+  .compare ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px;font-size:14px;color:var(--ink-soft);}
+  .compare li.term{color:var(--ink);font-weight:600;}
+  .bridge{
+    margin-top:18px;padding:14px 24px;
+    background:var(--deficit-wash);border-left:3px solid var(--deficit);
+    font-family:"IBM Plex Serif",Georgia,serif;font-size:20px;color:var(--ink);
+  }
+
+  /* ---- numbered pipeline ---- */
+  .pipe{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:24px;}
+  .pipe > div{border-top:2px solid var(--canopy);padding-top:12px;}
+  .pipe .step{
+    font-family:"IBM Plex Mono",ui-monospace,monospace;
+    font-size:11px;color:var(--canopy);letter-spacing:.1em;
+  }
+  .pipe h3{margin:6px 0 6px;font-size:15px;font-weight:600;}
+  .pipe p{font-size:13px;color:var(--ink-soft);margin:0;line-height:1.42;}
+
+  /* ---- SMS mock ---- */
+  .sms{
+    margin-top:20px;display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;
+  }
+  .sms-bubble{
+    background:var(--canopy-wash);
+    border:1px solid var(--rule);
+    border-radius:10px 10px 10px 2px;
+    padding:14px 18px;max-width:46ch;
+  }
+  .sms-bubble .mr{
+    font-family:"IBM Plex Sans Devanagari","IBM Plex Sans",sans-serif;
+    font-size:16px;line-height:1.5;color:var(--ink);
+  }
+  .sms-bubble .en{
+    margin-top:8px;padding-top:8px;border-top:1px solid var(--rule);
+    font-size:12.5px;color:var(--ink-soft);font-style:italic;
+  }
+  .sms-note{font-size:13px;color:var(--ink-soft);max-width:34ch;padding-top:4px;}
+
+  /* ---- tier panels ---- */
+  .tiers{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px;}
+  .tier{padding:18px 22px;border:1px solid var(--rule);border-radius:2px;}
+  .tier.a{border-left:3px solid var(--canopy);}
+  .tier.b{border-left:3px solid var(--solar);}
+  .tier h3{margin:0;font-size:16px;font-weight:600;}
+  .tier .tag{
+    font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:10.5px;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);
+  }
+  .tier p{margin:8px 0 0;font-size:13.5px;color:var(--ink-soft);line-height:1.45;}
+  .metrics{
+    margin-top:18px;padding-top:14px;border-top:1px solid var(--rule-soft);
+    font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12.5px;color:var(--ink-soft);
+    display:flex;gap:14px;flex-wrap:wrap;
+  }
+  .metrics span{white-space:nowrap;}
+
+  /* ---- chart ---- */
+  .chart-wrap{margin-top:18px;overflow-x:auto;flex-shrink:0;}
+  .mr-inline{font-family:"IBM Plex Sans Devanagari","IBM Plex Sans",sans-serif;color:var(--ink);}
+  .chart-wrap svg{display:block;min-width:820px;width:100%;height:auto;}
+  .legend{
+    display:flex;gap:20px;flex-wrap:wrap;margin-top:10px;
+    font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;color:var(--ink-soft);
+  }
+  .legend i{display:inline-block;width:16px;height:9px;margin-right:6px;vertical-align:-1px;border-radius:1px;}
+
+  /* ---- beneficiaries ---- */
+  .benef{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:26px;}
+  .benef > div{padding:0 22px;border-left:1px solid var(--rule);}
+  .benef > div:first-child{border-left:0;padding-left:0;}
+  .benef h3{margin:0 0 8px;font-size:14px;font-weight:600;font-family:"IBM Plex Mono",ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--canopy);}
+  .benef p{font-size:13.5px;color:var(--ink-soft);margin:0;line-height:1.45;}
+
+  /* ---- roadmap ---- */
+  .road{margin-top:26px;display:flex;flex-direction:column;gap:0;}
+  .road-item{display:grid;grid-template-columns:170px 1fr;gap:24px;padding:14px 0;border-top:1px solid var(--rule-soft);}
+  .road-item:first-child{border-top:1px solid var(--rule);}
+  .road-when{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12.5px;color:var(--deficit);letter-spacing:.03em;}
+  .road-what b{display:block;font-size:15px;margin-bottom:3px;}
+  .road-what span{font-size:13.5px;color:var(--ink-soft);}
+
+  /* ---- limits ---- */
+  .limits{display:flex;flex-direction:column;gap:12px;margin-top:18px;}
+  .limit{display:grid;grid-template-columns:1fr 1fr;gap:22px;padding-bottom:12px;border-bottom:1px solid var(--rule-soft);}
+  .limit b{font-size:14px;font-weight:600;}
+  .limit span{font-size:13.5px;color:var(--ink-soft);}
+  .team-line{margin-top:18px;font-size:13.5px;color:var(--ink-faint);font-family:"IBM Plex Mono",ui-monospace,monospace;}
+
+  .scale-note{
+    margin-top:auto;padding-top:14px;
+    font-size:13px;color:var(--ink-soft);
+  }
+
+  @media (max-width:860px){
+    .slide{aspect-ratio:auto;padding:34px 26px 30px;}
+    .title-slide h1{font-size:42px;}
+    h2{font-size:26px;}
+    .stats,.pipe,.benef,.tiers,.compare,.limit{grid-template-columns:1fr;}
+    .stat,.benef > div{border-left:0;padding-left:0;border-top:1px solid var(--rule);padding-top:14px;}
+    .stat:first-child,.benef > div:first-child{border-top:0;padding-top:0;}
+    .compare > div{border-right:0;border-bottom:1px solid var(--rule);}
+    .road-item{grid-template-columns:1fr;gap:4px;}
+  }
+
+  @media print{
+    @page{size:A4 landscape;margin:0;}
+    body{background:#fff;}
+    .deck{padding:0;gap:0;max-width:none;}
+    .slide{
+      border:0;border-radius:0;box-shadow:none;background:#fff;
+      break-after:page;page-break-after:always;
+      break-inside:avoid;page-break-inside:avoid;
+      width:297mm;height:208mm;aspect-ratio:auto;
+      padding:44px 58px 34px;
+      overflow:hidden;
+    }
+    .slide:last-child{break-after:auto;page-break-after:auto;}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+</style>
+
+<div class="deck">
+
+  <!-- 1 ------------------------------------------------------------------ -->
+  <section class="slide title-slide">
+    <span class="eyebrow">Yuva Yodha Energy Tech Hackathon 2026 &middot; Challenge 01</span>
+    <h1>CropClock</h1>
+    <div class="title-rule"></div>
+    <p class="title-sub">Scheduling India's farm power to the crop, not the calendar.</p>
+    <div class="title-meta">
+      <span>Sustainable Agriculture &mdash; Energy, Water &amp; Productivity</span>
+      <span>Case study: Maharashtra, MSKVY feeders</span>
+    </div>
+    <div class="foot"><span>CropClock</span><span>01 / 12</span></div>
+  </section>
+
+  <!-- 2 ------------------------------------------------------------------ -->
+  <section class="slide">
+    <span class="eyebrow">The problem</span>
+    <h2>A fifth of India's electricity is scheduled by a roster written months in advance.</h2>
+    <div class="stats">
+      <div class="stat">
+        <b>21.2 M</b>
+        <span>grid-electrified agricultural pumpsets</span>
+        <em>CEA, 2019</em>
+      </div>
+      <div class="stat">
+        <b>~1 / 5</b>
+        <span>of national electricity consumption goes to agriculture</span>
+        <em>CEEW &middot; ICED-NITI</em>
+      </div>
+      <div class="stat">
+        <b>8 h</b>
+        <span>daily supply window per feeder, fixed by rota</span>
+        <em>MSEDCL agricultural policy</em>
+      </div>
+    </div>
+    <ul class="clean">
+      <li>The roster is blind to <b>rainfall</b> &mdash; power arrives the morning after 40&nbsp;mm of rain.</li>
+      <li>It is blind to <b>crop growth stage</b> &mdash; every week is treated identically, though water demand varies several-fold.</li>
+      <li>It is blind to <b>the feeder's own solar</b> &mdash; pumps run at 06:00 while the plant peaks at noon.</li>
+    </ul>
+    <div class="foot"><span>The problem</span><span>02 / 12</span></div>
+  </section>
+
+  <!-- 3 ------------------------------------------------------------------ -->
+  <section class="slide">
+    <span class="eyebrow">The insight</span>
+    <h2>Farmers over-irrigate because supply is unpredictable &mdash; not because they are uninformed.</h2>
+    <p class="lede">If you cannot forecast when power returns, flooding the field while you have it is the rational choice. Every existing product targets the farmer's <em>knowledge</em>. None targets the <em>uncertainty</em> that actually drives the behaviour.</p>
+    <div class="pull">Reliability is itself a water-saving technology.</div>
+    <p class="scale-note">Telangana proves it: 24&times;7 free agricultural supply since January 2018 removed the uncertainty and changed behaviour &mdash; at a fiscal cost its DISCOMs cannot carry indefinitely. <strong>CropClock delivers the predictability without the kWh.</strong></p>
+    <div class="foot"><span>The insight</span><span>03 / 12</span></div>
+  </section>
+
+  <!-- 4 ------------------------------------------------------------------ -->
+  <section class="slide">
+    <span class="eyebrow">Innovation &middot; the gap</span>
+    <h2>Two mature fields that have never been connected.</h2>
+    <div class="compare">
+      <div>
+        <h3>Satellite crop water stress</h3>
+        <ul>
+          <li class="term">SEBAL &middot; SSEBop &middot; METRIC</li>
+          <li class="term">Fasal &middot; Fyllo &middot; Farmonaut</li>
+          <li>Advises <strong>the farmer</strong></li>
+          <li>Assumes power is already available</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Agricultural feeder scheduling</h3>
+        <ul>
+          <li class="term">Jyotigram, 2003 &rarr; 6+ states</li>
+          <li class="term">MSEDCL 8-hour daytime rota</li>
+          <li>Optimises <strong>fairness and load</strong></li>
+          <li>Has never once looked at a crop</li>
+        </ul>
+      </div>
+    </div>
+    <div class="bridge">CropClock is the missing link between them.</div>
+    <div class="foot"><span>Innovation</span><span>04 / 12</span></div>
+  </section>
+
+  <!-- 5 ------------------------------------------------------------------ -->
+  <section class="slide">
+    <span class="eyebrow">The solution &middot; system architecture</span>
+    <h2>Four components, one weekly decision per feeder.</h2>
+    <div class="chart-wrap">
+      <svg viewBox="0 0 980 286" role="img" aria-label="CropClock architecture: satellite, crop calendar, rainfall forecast and irradiance feed a water-deficit engine and a rain-skip filter, which feed a feeder scheduler that outputs a DISCOM switching plan and a farmer SMS.">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="var(--ink-faint)"></path>
+          </marker>
+        </defs>
+        <g stroke="var(--ink-faint)" stroke-width="1.25" fill="none" marker-end="url(#ah)">
+          <path d="M170 40 L200 56"></path>
+          <path d="M170 96 L200 90"></path>
+          <path d="M170 152 L200 172"></path>
+          <path d="M170 208 L188 208 L188 254 L440 254 L440 180 L452 180"></path>
+          <path d="M420 72 L452 92"></path>
+          <path d="M420 171 L452 150"></path>
+          <path d="M672 118 L706 82"></path>
+          <path d="M672 138 L706 180"></path>
+        </g>
+
+        <g fill="var(--solar-wash)" stroke="var(--solar)" stroke-width="1.25">
+          <rect x="8" y="18" width="162" height="44" rx="2"></rect>
+          <rect x="8" y="74" width="162" height="44" rx="2"></rect>
+          <rect x="8" y="130" width="162" height="44" rx="2"></rect>
+          <rect x="8" y="186" width="162" height="44" rx="2"></rect>
+        </g>
+        <g font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="var(--ink)">
+          <text x="20" y="38">Sentinel-2 + Landsat</text>
+          <text x="20" y="94">ICAR + FAO-56</text>
+          <text x="20" y="150">IMD / Open-Meteo</text>
+          <text x="20" y="206">Irradiance</text>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="9.5" fill="var(--ink-soft)">
+          <text x="20" y="52">10 m, 5-day revisit</text>
+          <text x="20" y="108">crop calendars, Kc</text>
+          <text x="20" y="164">48-72 h forecast</text>
+          <text x="20" y="222">feeder solar output</text>
+        </g>
+
+        <g fill="var(--canopy-wash)" stroke="var(--canopy)" stroke-width="1.5">
+          <rect x="200" y="28" width="220" height="88" rx="2"></rect>
+          <rect x="200" y="140" width="220" height="62" rx="2"></rect>
+          <rect x="452" y="54" width="220" height="148" rx="2"></rect>
+        </g>
+        <g font-family="IBM Plex Sans, sans-serif" font-size="13" font-weight="600" fill="var(--ink)">
+          <text x="214" y="50">Water-deficit engine</text>
+          <text x="214" y="162">Rain-skip filter</text>
+          <text x="466" y="78">Feeder scheduler</text>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="9.5" fill="var(--ink-soft)">
+          <text x="214" y="68">surface energy balance</text>
+          <text x="214" y="82">actual ET vs crop demand</text>
+          <text x="214" y="96">deficit per command area</text>
+          <text x="214" y="110">validated on CGWB wells</text>
+          <text x="214" y="180">defers a window before rain</text>
+          <text x="214" y="194">no behavioural assumption</text>
+          <text x="466" y="98">CONSTRAINTS</text>
+          <text x="466" y="112">full statutory hours per feeder</text>
+          <text x="466" y="126">transformer capacity</text>
+          <text x="466" y="148">OBJECTIVE</text>
+          <text x="466" y="162">maximise deficit served</text>
+          <text x="466" y="176">+ solar coincidence</text>
+        </g>
+
+        <g fill="var(--deficit-wash)" stroke="var(--deficit)" stroke-width="1.25">
+          <rect x="706" y="42" width="264" height="78" rx="2"></rect>
+          <rect x="706" y="142" width="264" height="78" rx="2"></rect>
+        </g>
+        <g font-family="IBM Plex Sans, sans-serif" font-size="13" font-weight="600" fill="var(--ink)">
+          <text x="720" y="66">DISCOM</text>
+          <text x="720" y="166">Farmer</text>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="9.5" fill="var(--ink-soft)">
+          <text x="720" y="84">weekly feeder switching plan</text>
+          <text x="720" y="98">published 48 h ahead</text>
+          <text x="720" y="112">shadow mode &rarr; advisory &rarr; live</text>
+          <text x="720" y="184">SMS / IVR in Marathi</text>
+          <text x="720" y="198">"power tomorrow 10:00-18:00,</text>
+          <text x="720" y="212">rain Thursday - skip Wednesday"</text>
+        </g>
+
+        <g font-family="IBM Plex Mono, monospace" font-size="9.5" fill="var(--ink-faint)">
+          <text x="8" y="276">PUBLIC DATA IN</text>
+          <text x="200" y="276">DEFICIT + FORECAST</text>
+          <text x="452" y="276">SCHEDULING</text>
+          <text x="706" y="276">TWO CONSUMERS, ONE PLAN</text>
+        </g>
+      </svg>
+    </div>
+    <p class="scale-note" style="margin-top:14px">The farmer message goes out in Marathi &mdash; <span class="mr-inline">&#2347;&#2368;&#2337;&#2352; &#2410;&#2413;: &#2313;&#2342;&#2381;&#2351;&#2366; &#2360;&#2325;&#2366;&#2355;&#2368; &#2407;&#2406;:&#2406;&#2406; &#2340;&#2375; &#2360;&#2306;&#2343;&#2381;&#2351;&#2366;&#2325;&#2366;&#2355;&#2368; &#2412;:&#2406;&#2406; &#2357;&#2368;&#2332;&#2346;&#2369;&#2352;&#2357;&#2336;&#2366;.</span> Every feeder still receives its <strong>full statutory hours</strong>: the saving is timing, not rationing.</p>
+    <div class="foot"><span>The solution</span><span>05 / 12</span></div>
+  </section>
+
+  <!-- 6 ------------------------------------------------------------------ -->
+  <section class="slide">
+    <span class="eyebrow">Key feature &middot; one kharif week on one feeder</span>
+    <h2>Same 56 hours. Delivered when the crop and the sun agree.</h2>
+    <div class="chart-wrap">
+      <svg viewBox="0 0 980 236" role="img" aria-label="Seven-day comparison of a fixed rota schedule against the CropClock schedule, overlaid on the feeder's solar output. Both deliver 56 hours.">
+        <!-- day separators -->
+        <g stroke="var(--rule-soft)" stroke-width="1">
+          <line x1="95" y1="22" x2="95" y2="196"></line>
+          <line x1="219" y1="22" x2="219" y2="196"></line>
+          <line x1="343" y1="22" x2="343" y2="196"></line>
+          <line x1="467" y1="22" x2="467" y2="196"></line>
+          <line x1="591" y1="22" x2="591" y2="196"></line>
+          <line x1="715" y1="22" x2="715" y2="196"></line>
+          <line x1="839" y1="22" x2="839" y2="196"></line>
+          <line x1="963" y1="22" x2="963" y2="196"></line>
+        </g>
+        <!-- solar bells -->
+        <g fill="var(--solar-wash)" stroke="var(--solar)" stroke-width="1.25">
+          <path d="M126 70 Q157 18 188 70 Z"></path>
+          <path d="M250 70 Q281 18 312 70 Z"></path>
+          <path d="M374 70 Q405 30 436 70 Z"></path>
+          <path d="M498 70 Q529 18 560 70 Z"></path>
+          <path d="M622 70 Q653 18 684 70 Z"></path>
+          <path d="M746 70 Q777 18 808 70 Z"></path>
+          <path d="M870 70 Q901 18 932 70 Z"></path>
+        </g>
+        <!-- rota blocks 06:00-14:00 -->
+        <g fill="var(--deficit-wash)" stroke="var(--deficit)" stroke-width="1.25">
+          <rect x="126" y="96" width="41" height="30" rx="1"></rect>
+          <rect x="250" y="96" width="41" height="30" rx="1"></rect>
+          <rect x="374" y="96" width="41" height="30" rx="1"></rect>
+          <rect x="498" y="96" width="41" height="30" rx="1"></rect>
+          <rect x="622" y="96" width="41" height="30" rx="1"></rect>
+          <rect x="746" y="96" width="41" height="30" rx="1"></rect>
+          <rect x="870" y="96" width="41" height="30" rx="1"></rect>
+        </g>
+        <!-- cropclock blocks -->
+        <g fill="var(--canopy-wash)" stroke="var(--canopy)" stroke-width="1.25">
+          <rect x="147" y="152" width="41" height="30" rx="1"></rect>
+          <rect x="271" y="152" width="41" height="30" rx="1"></rect>
+          <rect x="508" y="152" width="52" height="30" rx="1"></rect>
+          <rect x="632" y="152" width="52" height="30" rx="1"></rect>
+          <rect x="756" y="152" width="52" height="30" rx="1"></rect>
+          <rect x="880" y="152" width="52" height="30" rx="1"></rect>
+        </g>
+        <!-- skipped wednesday -->
+        <rect x="395" y="152" width="41" height="30" rx="1" fill="none" stroke="var(--ink-faint)" stroke-width="1.25" stroke-dasharray="3 3"></rect>
+        <text x="405" y="146" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--deficit)">40 mm rain &mdash; skipped</text>
+        <!-- row labels -->
+        <g font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--ink-soft)" text-anchor="end">
+          <text x="85" y="54">Solar output</text>
+          <text x="85" y="115">Fixed rota</text>
+          <text x="85" y="171">CropClock</text>
+        </g>
+        <!-- hour anchors, keyed on the first day -->
+        <g font-family="IBM Plex Mono, monospace" font-size="9.5" fill="var(--ink-faint)">
+          <text x="85" y="203" text-anchor="end">hour</text>
+          <text x="126" y="203" text-anchor="middle">06</text>
+          <text x="157" y="203" text-anchor="middle">12</text>
+          <text x="188" y="203" text-anchor="middle">18</text>
+        </g>
+        <!-- day labels -->
+        <g font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--ink-soft)" text-anchor="middle">
+          <text x="157" y="228">MON</text>
+          <text x="281" y="228">TUE</text>
+          <text x="405" y="228">WED</text>
+          <text x="529" y="228">THU</text>
+          <text x="653" y="228">FRI</text>
+          <text x="777" y="228">SAT</text>
+          <text x="901" y="228">SUN</text>
+        </g>
+        <!-- totals -->
+        <g font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--ink)" text-anchor="start">
+          <text x="963" y="115" text-anchor="end" opacity="0">.</text>
+        </g>
+      </svg>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--solar-wash);border:1px solid var(--solar)"></i>Feeder solar output</span>
+      <span><i style="background:var(--deficit-wash);border:1px solid var(--deficit)"></i>Fixed rota &mdash; 7 &times; 8 h = <b class="num">56 h</b></span>
+      <span><i style="background:var(--canopy-wash);border:1px solid var(--canopy)"></i>CropClock &mdash; rain-skipped, redistributed = <b class="num">56 h</b></span>
+    </div>
+    <div class="compare" style="margin-top:22px">
+      <div>
+        <h3>What changed on Wednesday</h3>
+        <ul>
+          <li>40&nbsp;mm of rain is forecast, so the window is <strong>cancelled outright</strong>.</li>
+          <li>Those 8 hours are redistributed across Thursday to Sunday, +2&nbsp;h each.</li>
+          <li>The feeder's weekly entitlement is untouched. Nobody is rationed.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>What changed every other day</h3>
+        <ul>
+          <li>Windows shift from <strong>06:00&ndash;14:00</strong> to <strong>08:00&ndash;18:00</strong>.</li>
+          <li>Pumping now sits under the feeder's own solar generation curve.</li>
+          <li>The DISCOM buys fewer units from the grid to serve the same irrigation.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot"><span>Key feature</span><span>06 / 12</span></div>
+  </section>
+
+  <!-- 7 ------------------------------------------------------------------ -->
+  <section class="slide">
+    <span class="eyebrow">Technical approach</span>
+    <h2>From reflectance to a switching decision.</h2>
+    <ul class="clean">
+      <li><b>Actual ET</b> &mdash; surface energy balance, SSEBop-style, on Sentinel-2 (10 m, 5-day revisit) with Landsat thermal.</li>
+      <li><b>Crop demand</b> &mdash; FAO-56 reference ET &times; crop coefficient, staged against ICAR crop calendars.</li>
+      <li><b>Deficit</b> &mdash; demand &minus; (actual ET + effective rainfall), as a running soil-water balance per command area.</li>
+      <li><b>Scheduler</b> &mdash; fairness-constrained window assignment under transformer capacity; greedy heuristic first, MILP if time allows.</li>
+      <li><b>Validation</b> &mdash; CGWB observation-well levels as an independent check on seasonal groundwater draft.</li>
+    </ul>
+    <p class="scale-note"><strong>Every input is public and free.</strong> Sentinel-2, Landsat, IMD, CGWB, MERC tariff orders, Grid-India. No sensors, no field deployment, no proprietary data &mdash; which also means anyone can reproduce our numbers.</p>
+    <div class="foot"><span>Technical approach</span><span>07 / 12</span></div>
+  </section>
+
+  <!-- 8 ------------------------------------------------------------------ -->
+  <section class="slide">
+    <span class="eyebrow">Expected impact &middot; backtested, not projected</span>
+    <h2>One feeder, one year of observed weather: 128 MWh and &#8377;9.6 lakh.</h2>
+    <div class="stats">
+      <div class="stat">
+        <b>35.2 &rarr; 48.6%</b>
+        <span>of pump energy served by the feeder's own solar plant, rabi</span>
+        <em>+13.4 points</em>
+      </div>
+      <div class="stat">
+        <b>128.2 MWh</b>
+        <span>grid energy avoided per feeder per year</span>
+        <em>9.1% of baseline pumping</em>
+      </div>
+      <div class="stat">
+        <b>&#8377;9.62 L</b>
+        <span>subsidy avoided per feeder per year</span>
+        <em>at &#8377;7.50 / kWh cost of supply</em>
+      </div>
+    </div>
+    <p class="scale-note" style="margin-top:20px">Solapur district, seasons of 2025&ndash;26. Observed rainfall, reference ET and hourly irradiance from the ERA5 archive &mdash; 250 pumps of 7.5&nbsp;HP on a 50&nbsp;m borewell, 500&nbsp;ha, 1&nbsp;MW MSKVY plant. <strong>Tier A only: no behavioural assumption enters this figure.</strong> Against the 2,269&nbsp;MW already tariff-approved under MSKVY&nbsp;2.0, this scales to roughly <strong>291&nbsp;GWh and &#8377;218 crore a year</strong>.</p>
+    <div class="foot"><span>Expected impact</span><span>08 / 12</span></div>
+  </section>
+
+  <!-- 9 ------------------------------------------------------------------ -->
+  <section class="slide">
+    <span class="eyebrow">What the backtest changed</span>
+    <h2>We led with rain-skip. The data said solar alignment.</h2>
+    <div class="compare">
+      <div>
+        <h3>Rabi &mdash; Oct to Mar</h3>
+        <ul>
+          <li class="term">101 mm rain against 839 mm reference ET</li>
+          <li><strong>Zero</strong> irrigations worth deferring. In the dry season there is no rain to skip.</li>
+          <li>Solar alignment is the entire Tier A saving: <strong>106.7 MWh</strong>.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Kharif &mdash; Jun to Oct</h3>
+        <ul>
+          <li class="term">1,112 mm rain against 657 mm reference ET</li>
+          <li>Only one crop-optimal irrigation all season &mdash; but two deferrals against realistic behaviour.</li>
+          <li>Rain-skip saves <strong>255.5 MWh</strong>, more than the whole rabi solar figure.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="bridge">The lever is different in each season. A single-season pilot draws the wrong conclusion.</div>
+    <p class="scale-note">And the largest number in the whole model is neither: defensive irrigation applies <strong>1,200 mm</strong> in kharif where 138 mm meets crop demand, and <strong>1,092 mm</strong> of that drains past the root zone. Closing that gap is what the published-in-advance schedule is actually for.</p>
+    <div class="foot"><span>What the backtest changed</span><span>09 / 12</span></div>
+  </section>
+
+  <!-- 9 ------------------------------------------------------------------ -->
+  <section class="slide">
+    <span class="eyebrow">Alignment &middot; why it scales</span>
+    <h2>Software on infrastructure India has already funded.</h2>
+    <div class="stats">
+      <div class="stat">
+        <b>16,000 MW</b>
+        <span>MSKVY 2.0 feeder-solarisation target</span>
+        <em>Maharashtra GR, 13.09.2024</em>
+      </div>
+      <div class="stat">
+        <b>2,269 MW</b>
+        <span>tariffs approved under MSKVY 2.0</span>
+        <em>MERC, August 2026</em>
+      </div>
+      <div class="stat">
+        <b>&#8377;0</b>
+        <span>new hardware capex required to deploy</span>
+        <em>public data only</em>
+      </div>
+    </div>
+    <div class="benef">
+      <div>
+        <h3>Farmer</h3>
+        <p>Predictable, adequate irrigation. Less wasted diesel, fewer wasted trips to the field.</p>
+      </div>
+      <div>
+        <h3>DISCOM</h3>
+        <p>Fewer subsidised units billed, higher solar self-consumption on MSKVY feeders.</p>
+      </div>
+      <div>
+        <h3>State</h3>
+        <p>Lower agricultural power subsidy against the same service commitment.</p>
+      </div>
+      <div>
+        <h3>Aquifer &amp; air</h3>
+        <p>Up to <strong>750 ML</strong> of groundwater left in the ground per feeder per kharif season, and <strong>~91 t CO&#8322;</strong> avoided a year at India's grid emission factor.</p>
+      </div>
+    </div>
+    <div class="foot"><span>Alignment &amp; beneficiaries</span><span>10 / 12</span></div>
+  </section>
+
+  <!-- 10 ----------------------------------------------------------------- -->
+  <section class="slide">
+    <span class="eyebrow">Implementation roadmap</span>
+    <h2>One district proves it. The scheme replicates it.</h2>
+    <div class="road">
+      <div class="road-item">
+        <span class="road-when">11 Oct &ndash; 22 Nov 2026</span>
+        <div class="road-what">
+          <b>Round 2 prototype</b>
+          <span>Replace FAO-56 stage coefficients with measured Sentinel-2 evapotranspiration, extend the backtest across districts and seasons, and ship the scheduler and dashboard. The Tier A model already runs.</span>
+        </div>
+      </div>
+      <div class="road-item">
+        <span class="road-when">Dec 2026 &ndash; Jan 2027</span>
+        <div class="road-what">
+          <b>Finale &amp; validation</b>
+          <span>Independent check of seasonal draft against CGWB observation wells; review with Schneider Electric mentors.</span>
+        </div>
+      </div>
+      <div class="road-item">
+        <span class="road-when">2027</span>
+        <div class="road-what">
+          <b>District pilot with a DISCOM</b>
+          <span>Run in shadow mode alongside the existing rota on MSKVY feeders, then advisory, then live scheduling.</span>
+        </div>
+      </div>
+      <div class="road-item">
+        <span class="road-when">2028 onward</span>
+        <div class="road-what">
+          <b>Replicate across segregated-feeder states</b>
+          <span>Gujarat, Karnataka, Madhya Pradesh, Rajasthan and Punjab already run the feeder architecture this depends on.</span>
+        </div>
+      </div>
+    </div>
+    <div class="foot"><span>Roadmap</span><span>11 / 12</span></div>
+  </section>
+
+  <!-- 11 ----------------------------------------------------------------- -->
+  <section class="slide">
+    <span class="eyebrow">Team &middot; and what we are not claiming</span>
+    <h2>The limitations belong on a slide, not in a footnote.</h2>
+    <div class="limits">
+      <div class="limit">
+        <b>Feeder-to-command-area mapping is not public.</b>
+        <span>We approximate it geographically from land use and transformer locations. DISCOMs hold the real mapping internally, so this is a deployment detail &mdash; not a design flaw.</span>
+      </div>
+      <div class="limit">
+        <b>Evapotranspiration is noisy on sub-hectare plots.</b>
+        <span>We aggregate to the feeder command area, where independent errors largely cancel. We do not claim plot-level accuracy, and the scheduler never needs it.</span>
+      </div>
+      <div class="limit">
+        <b>The behavioural saving is modelled, not measured.</b>
+        <span>Which is precisely why Tier A and Tier B are reported separately, and why the headline number is always the physical one.</span>
+      </div>
+      <div class="limit">
+        <b>The backtest is one district, one year, and has no satellite input yet.</b>
+        <span>Crop demand currently comes from FAO-56 stage coefficients, not measured Sentinel-2 evapotranspiration. Replacing that assumption with observation is exactly what Round 2 builds.</span>
+      </div>
+    </div>
+    <p class="team-line">TEAM &mdash; to be confirmed on submission &middot; KL University, Hyderabad</p>
+    <div class="foot"><span>Team &amp; limitations</span><span>12 / 12</span></div>
+  </section>
+
+</div>

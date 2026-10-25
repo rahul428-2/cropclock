@@ -1,0 +1,106 @@
+{
+  "site": "Solapur district, Maharashtra",
+  "coords": [
+    17.66,
+    75.9
+  ],
+  "feeder": {
+    "pumps": 250,
+    "pump_kw": 5.6,
+    "head_m": 50.0,
+    "pump_efficiency": 0.4,
+    "discharge_m3_per_h": 16.4,
+    "specific_energy_kwh_per_m3": 0.341,
+    "command_area_ha": 500.0,
+    "coincident_load_kw": 980,
+    "solar_mw": 1.0
+  },
+  "seasons": [
+    {
+      "tier_B_defensive_baseline": {
+        "note": "fixed 12-day cycle, fixed 60 mm net application",
+        "irrigations": 12,
+        "gross_applied_mm": 1200.0,
+        "over_application_lost_mm": 1092.3,
+        "excess_over_ET_optimal_mm": 1062.2,
+        "irrigations_deferred_by_forecast": 2,
+        "water_saved_mm_per_ha": 150.0,
+        "feeder_energy_saved_mwh": 255.5,
+        "pct_of_defensive_baseline": 12.5
+      },
+      "season": "kharif",
+      "crop": "Soybean",
+      "window": "2025-06-01 to 2025-11-05",
+      "rainfall_mm": 1112.3,
+      "reference_ET_mm": 656.8,
+      "baseline": {
+        "irrigations": 1,
+        "gross_applied_mm": 137.8,
+        "deep_percolation_mm": 456.3,
+        "energy_kwh_per_ha": 469,
+        "feeder_energy_mwh": 234.7,
+        "pumping_days": 30
+      },
+      "A1_rain_skip": {
+        "irrigations_deferred": 0,
+        "water_saved_mm_per_ha": 0.0,
+        "feeder_energy_saved_mwh": 0.0,
+        "pct_of_baseline": 0.0
+      },
+      "A2_solar_coincidence": {
+        "baseline_solar_share_pct": 21.9,
+        "cropclock_solar_share_pct": 31.1,
+        "grid_mwh_displaced": 21.5,
+        "pct_of_baseline": 9.2
+      },
+      "combined": {
+        "grid_mwh_avoided_per_feeder": 21.5,
+        "pct_of_baseline": 9.2,
+        "subsidy_avoided_lakh_rs": 1.61
+      }
+    },
+    {
+      "tier_B_defensive_baseline": {
+        "note": "fixed 12-day cycle, fixed 60 mm net application",
+        "irrigations": 11,
+        "gross_applied_mm": 1100.0,
+        "over_application_lost_mm": 260.3,
+        "excess_over_ET_optimal_mm": 410.3,
+        "irrigations_deferred_by_forecast": 0,
+        "water_saved_mm_per_ha": 0.0,
+        "feeder_energy_saved_mwh": 0.0,
+        "pct_of_defensive_baseline": 0.0
+      },
+      "season": "rabi",
+      "crop": "Rabi sorghum (jowar)",
+      "window": "2025-10-01 to 2026-03-20",
+      "rainfall_mm": 100.7,
+      "reference_ET_mm": 838.6,
+      "baseline": {
+        "irrigations": 5,
+        "gross_applied_mm": 689.7,
+        "deep_percolation_mm": 14.1,
+        "energy_kwh_per_ha": 2349,
+        "feeder_energy_mwh": 1174.6,
+        "pumping_days": 102
+      },
+      "A1_rain_skip": {
+        "irrigations_deferred": 0,
+        "water_saved_mm_per_ha": 0.0,
+        "feeder_energy_saved_mwh": 0.0,
+        "pct_of_baseline": 0.0
+      },
+      "A2_solar_coincidence": {
+        "baseline_solar_share_pct": 35.2,
+        "cropclock_solar_share_pct": 48.6,
+        "grid_mwh_displaced": 106.7,
+        "pct_of_baseline": 9.1
+      },
+      "combined": {
+        "grid_mwh_avoided_per_feeder": 106.7,
+        "pct_of_baseline": 9.1,
+        "subsidy_avoided_lakh_rs": 8.01
+      }
+    }
+  ]
+}
