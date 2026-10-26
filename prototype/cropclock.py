@@ -3,14 +3,21 @@
 CropClock — feeder scheduler and season backtest.
 
 Eight agricultural feeders on one substation, each with a 1 MW MSKVY solar
-plant, run through rabi 2025-26 day by day under three strategies:
+plant, run through rabi 2025-26 day by day under these strategies:
 
-  rota       MSEDCL practice: 8 h a day, feeders 1-4 on 08-16 and 5-8 on 22-06,
-             swapping every week.
+  rota       MSEDCL AgLM rotation (Circular 55), still used where the substation
+             can't carry every feeder by day: 8 h a day, feeders 1-4 on 08-16 and
+             5-8 on 22-06, swapping every week.
   scheduler  CropClock without rain-skip: same 8 h/day guarantee and the same
              4-feeder substation cap, but hours go to the feeders whose fields
-             need water, in the sunniest forecast hours first.
+             need water, where the forecast solar still has room.
   cropclock  scheduler + rain-skip on the day-ahead forecast.
+
+and, on a substation big enough to run all 8 feeders at once (MAX_ON_DAYTIME):
+
+  daytime      MSEDCL policy for solarised / feasible feeders (letter of
+               31.12.2025): 8 h by day only, staggered 08-16 / 09-17.
+  cropclock_8  cropclock with the same bigger substation.
 
 Crop water demand per feeder comes from Sentinel-2 (ndvi.py), not a stage
 calendar. Rain-skip is scored on archived 1- and 2-day-ahead forecasts against
@@ -37,6 +44,7 @@ from backtest import (AREA_HA, CALENDAR_INTERVAL_DAYS, CALENDAR_NET_MM,  # noqa:
 
 HOURS_PER_DAY = 8          # MERC guarantee to agricultural feeders
 MAX_ON = 4                 # substation transformer: 4 feeders at full load
+MAX_ON_DAYTIME = 8         # what daytime-only supply to all 8 feeders needs
 STRESS_OVERRIDE = 0.75     # never defer for rain past 75% of TAW
 SUN_HOURS = range(7, 18)   # CropClock prefers these; uses night only if it must
 
@@ -84,30 +92,34 @@ def rota_hours(fi, day_i):
     return list(range(8, 16)) if day_group else [22, 23, 0, 1, 2, 3, 4, 5]
 
 
-def plan_day(need_kwh, rad_fc, priority):
+def daytime_hours(fi):
+    return list(range(8, 16)) if fi % 2 == 0 else list(range(9, 17))
+
+
+def plan_day(need_kwh, rad_fc, priority, max_on=MAX_ON):
     """
-    Greedy: walk the day's hours sunniest-first and give each to up to MAX_ON
-    feeders, most water-stressed first, until each feeder's need or its 8 h is
-    met. Night hours are only reached when daylight is full.
+    Greedy: most water-stressed feeder first, each of its hours goes where the
+    forecast solar has the most room left (generation minus load already
+    placed), up to max_on feeders an hour, until its need or its 8 h is met.
+    Once the sun is used up, hours go nearest daylight, not to midnight.
     """
-    # overflow goes to the hours nearest daylight, not to midnight
-    dark = lambda h: min((h - SUN_HOURS.stop) % 24, (SUN_HOURS.start - 1 - h) % 24)
-    hours = sorted(SUN_HOURS, key=lambda h: -rad_fc[h]) + \
-        sorted((h for h in range(24) if h not in SUN_HOURS), key=dark)
-    left = [min(np.ceil(k / FEEDER_KWH_PER_H), HOURS_PER_DAY) for k in need_kwh]
+    dark = lambda h: 0 if h in SUN_HOURS else min((h - SUN_HOURS.stop) % 24, (SUN_HOURS.start - 1 - h) % 24)
+    room = len(need_kwh) * FEEDER_SOLAR_MW * np.asarray(rad_fc, float) * PERFORMANCE_RATIO
+    count = np.zeros(24, int)
     on = [[] for _ in need_kwh]
-    order = sorted(range(len(need_kwh)), key=lambda f: -priority[f])
-    for h in hours:
-        slots = MAX_ON
-        for f in order:
-            if slots and left[f] > 0:
-                on[f].append(h)
-                left[f] -= 1
-                slots -= 1
+    for f in sorted(range(len(need_kwh)), key=lambda f: -priority[f]):
+        for _ in range(int(min(np.ceil(need_kwh[f] / FEEDER_KWH_PER_H), HOURS_PER_DAY))):
+            free = [h for h in range(24) if count[h] < max_on and h not in on[f]]
+            if not free:
+                break
+            h = max(free, key=lambda h: (max(room[h], 0), -dark(h)))
+            on[f].append(h)
+            count[h] += 1
+            room[h] -= FEEDER_KWH_PER_H
     return on
 
 
-def simulate(strategy, w, kc_daily, farmer="et"):
+def simulate(strategy, w, kc_daily, farmer="et", max_on=MAX_ON):
     """
     farmer="et":        irrigates when depletion reaches RAW, refills to field
                         capacity (Tier A: no behaviour assumed).
@@ -137,7 +149,7 @@ def simulate(strategy, w, kc_daily, farmer="et"):
             if owed[f] > 0 or not due:
                 continue
             ahead = w["rain_fc1"][i + 1] + w["rain_fc2"][i + 2] if i + 2 < nd else 0
-            if (strategy == "cropclock" and ahead >= RAIN_SKIP_MM
+            if (strategy.startswith("cropclock") and ahead >= RAIN_SKIP_MM
                     and D[f] < STRESS_OVERRIDE * TAW_MM):
                 came = w["rain"][i + 1:i + 3].sum()
                 deferrals.append({"date": d.isoformat(), "feeder": f"F{f + 1}",
@@ -153,8 +165,10 @@ def simulate(strategy, w, kc_daily, farmer="et"):
         need = owed / IRRIG_EFFICIENCY * KWH_PER_MM
         if strategy == "rota":
             on = [rota_hours(f, i) if need[f] > 0 else [] for f in range(nf)]
+        elif strategy == "daytime":
+            on = [daytime_hours(f) if need[f] > 0 else [] for f in range(nf)]
         else:
-            on = plan_day(need, w["rad_fc"][i], D / RAW_MM)
+            on = plan_day(need, w["rad_fc"][i], D / RAW_MM, max_on)
 
         for f, hrs in enumerate(on):
             kwh = rem = min(need[f], len(hrs) * FEEDER_KWH_PER_H)
@@ -220,8 +234,10 @@ def run_season(name, nd, start, end, kc_source, farmer):
     kc_daily = (kc_from_ndvi(nd, w["days"]) if kc_source == "ndvi"
                 else kc_from_calendar(SEASONS[name], w["days"], nf))
     runs = {s: simulate(s, w, kc_daily, farmer) for s in ("rota", "scheduler", "cropclock")}
+    runs |= {s: simulate(s, w, kc_daily, farmer, MAX_ON_DAYTIME) for s in ("daytime", "cropclock_8")}
     r, c = runs["rota"]["summary"], runs["cropclock"]["summary"]
     saved = r["grid_mwh"] - c["grid_mwh"]
+    dt, c8 = runs["daytime"]["summary"], runs["cropclock_8"]["summary"]
     print(name)
     for s, v in runs.items():
         print(f"  {s:10s}", json.dumps(v["summary"]))
@@ -243,6 +259,10 @@ def run_season(name, nd, start, end, kc_source, farmer):
             "grid_mwh_saved": round(saved, 1),
             "grid_pct_saved": round(100 * saved / r["grid_mwh"], 1),
             "subsidy_saved_lakh_rs": round(saved * 1000 * COST_OF_SUPPLY_PER_KWH / 1e5, 2),
+            # share of the daytime-only saving CropClock reaches without the bigger substation
+            "share_of_daytime_saving_pct": round(100 * saved / (r["grid_mwh"] - dt["grid_mwh"]), 1),
+            "vs_daytime_mwh_saved": round(dt["grid_mwh"] - c8["grid_mwh"], 1),
+            "vs_daytime_pct_saved": round(100 * (dt["grid_mwh"] - c8["grid_mwh"]) / dt["grid_mwh"], 1),
         },
         **runs,
     }
@@ -254,7 +274,7 @@ def main():
         "feeders": [f["id"] for f in nd["feeders"]],
         "feeder_bounds": [f["bounds"] for f in nd["feeders"]],
         "bbox": nd["bbox"],
-        "params": {"hours_per_day": HOURS_PER_DAY, "max_on": MAX_ON,
+        "params": {"hours_per_day": HOURS_PER_DAY, "max_on": MAX_ON, "max_on_daytime": MAX_ON_DAYTIME,
                    "feeder_kw": round(FEEDER_KWH_PER_H), "solar_mw_per_feeder": FEEDER_SOLAR_MW,
                    "raw_mm": RAW_MM, "rain_skip_mm": RAIN_SKIP_MM,
                    "cost_of_supply_rs_kwh": COST_OF_SUPPLY_PER_KWH},

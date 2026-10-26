@@ -70,7 +70,7 @@ b3 = box(x, b2[1] + b2[3] + 26, w, "Soil water balance", ["deficit += Kc · ET�
 
 x, w = cols[2][:2]
 c1 = box(x, 150, w, "Rain-skip", ["≥15 mm forecast in next 48 h → defer", "never past 75% of soil capacity", "scored against rain that fell"], BUILT, accent=True)
-c2 = box(x, c1[1] + c1[3] + 26, w, "Feeder scheduler (greedy)", ["need kWh = deficit ÷ 0.6 efficiency", "1  sunniest forecast hours first", "2  most water-stressed feeders first",
+c2 = box(x, c1[1] + c1[3] + 26, w, "Feeder scheduler (greedy)", ["need kWh = deficit ÷ 0.6 efficiency", "1  most water-stressed feeders first", "2  each hour where forecast solar has room",
                                                              "3  ≤ 4 feeders on (substation cap)", "4  every feeder keeps 8 h/day", "5  overflow → hours nearest daylight"], BUILT, accent=True)
 c3 = box(x, c2[1] + c2[3] + 26, w, "24 h × feeder switching plan", ["published 48 h ahead"], None, accent=True)
 
@@ -104,9 +104,9 @@ arrow([(bus, mid(d3)), (d3[0], mid(d3))])
 # results band
 ry = lane + 40
 out.append(f'<rect x="40" y="{ry}" width="{W - 80}" height="132" rx="12" fill="#ffffff" stroke="{LINE}" stroke-width="1.5"/>')
-text(60, ry + 30, "Backtest: 8 feeders, rabi 2025-26, real satellite passes, weather and forecasts — vs the MSEDCL day/night rota", 14.5, 650, INK)
-stats = [("−24.8%", "grid energy (663 MWh)"), ("₹49.7 lakh", "subsidy avoided, one season"),
-         ("50.6% → 15.2%", "pumping at night"), ("41.9% → 56.3%", "pump energy from solar")]
+text(60, ry + 30, "Backtest: 8 feeders, rabi 2025-26, real satellite passes, weather and forecasts — vs both MSEDCL schedules", 14.5, 650, INK)
+stats = [("−25.3%", "grid vs day/night rota (676 MWh)"), ("₹50.7 lakh", "subsidy avoided, one season"),
+         ("50.6% → 14.2%", "pumping at night"), ("−6.6%", "grid vs daytime-only (needs 2× substation)")]
 sw = (W - 120) / 4
 for i, (v, l) in enumerate(stats):
     sx = 60 + i * sw

@@ -10,7 +10,7 @@ own solar plant. CropClock decides which feeder is energised, and when, from thr
 
 1. **Crop water demand from satellite** — Sentinel-2 NDVI per feeder command area → crop coefficient → FAO-56 water balance.
 2. **Rain-skip** — irrigation is deferred when the forecast issued 1–2 days ahead says ≥15 mm is coming.
-3. **Feeder scheduler** — greedy: sunniest forecast hours first, most water-stressed feeders first, a 4-feeder substation cap, and every feeder keeps its 8 h/day.
+3. **Feeder scheduler** — greedy: most water-stressed feeders first, each hour placed where the day-ahead solar forecast has the most room left, a 4-feeder substation cap, and every feeder keeps its 8 h/day.
 
 ![CropClock architecture](docs/architecture.png)
 
@@ -18,10 +18,19 @@ own solar plant. CropClock decides which feeder is energised, and when, from thr
 
 | | Rabi 2025-26 | Kharif 2025 |
 |---|---|---|
-| Grid energy avoided vs MSEDCL rota | 663 MWh (−24.8%) | 747 MWh (−17.8%) |
-| Subsidy avoided (₹7.5/kWh) | ₹49.7 lakh | ₹56.0 lakh |
-| Pumping at night | 50.6% → 15.2% | 49.0% → 16.9% |
-| Pump energy from feeder solar | 41.9% → 56.3% | 38.6% → 47.7% |
+| **Constrained substation (3.92 MW, 4 feeders at once) — vs MSEDCL day/night rota** | | |
+| Grid energy avoided | 676 MWh (−25.3%) | 754 MWh (−18.0%) |
+| Subsidy avoided (₹7.5/kWh) | ₹50.7 lakh | ₹56.5 lakh |
+| Pumping at night | 50.6% → 14.2% | 49.0% → 16.2% |
+| Pump energy from feeder solar | 41.9% → 56.6% | 38.6% → 47.8% |
+| Share of the daytime-only saving reached, without a bigger substation | 89% | more than all of it (rain-skip) |
+| **Substation big enough for daytime-only (7.84 MW) — vs MSEDCL daytime-only** | | |
+| Grid energy avoided | 126 MWh (−6.6%) | 314 MWh (−8.7%) |
+
+MSEDCL runs two schedules today (letter CE(PP)/LM/AgLM/42650, 31.12.2025): 8 h **daytime-only**, staggered
+08:00–17:00, on solarised and technically feasible feeders, and the weekly **day/night rotation** where the
+substation can't carry every feeder by day. Daytime supply to all 8 feeders here would need 7.84 MW, twice
+the 3.92 MW substation, so each baseline is compared on the substation it needs.
 
 Rabi uses Sentinel-2 crop demand and an ET-optimal farmer (no behavioural assumption). Kharif is
 cloud-blocked for optical satellites, so it uses the FAO-56 soybean stage calendar and a defensive

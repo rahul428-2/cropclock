@@ -148,7 +148,8 @@ ul { padding-left: 18px; }
         <li><b>Crop demand.</b> Sentinel-2 L2A over the 8 feeder areas, every pass with &lt;30% cloud (28 dates, Oct 2025 – Mar 2026), cloud-masked with the scene classification layer. Feeder-mean NDVI → crop coefficient, Kc = 1.457·NDVI − 0.1725 (Kamble, Kilic &amp; Hubbard 2013), × FAO-56 reference ET.</li>
         <li><b>Weather.</b> Open-Meteo ERA5 archive for observed rain, ET₀ and hourly irradiance. Open-Meteo previous-runs API for the forecasts that were actually issued 1 and 2 days ahead. Rain-skip is scored against what actually fell, so a false alarm costs the crop a day.</li>
         <li><b>Feeder.</b> 250 × 7.5 HP pumps on a 50 m borewell (0.341 kWh/m³), 980 kW coincident load, 1 MW MSKVY solar each. Substation cap: 4 feeders at full load. Every feeder keeps its 8 h/day entitlement.</li>
-        <li><b>Rota baseline.</b> Feeders 1–4 on 08–16 and 5–8 on 22–06, swapping weekly (MSEDCL day/night rotation).</li>
+        <li><b>Two baselines, both MSEDCL practice.</b> <i>Rota</i>: feeders 1–4 on 08–16 and 5–8 on 22–06, swapping weekly (AgLM Circular 55), still used where the substation can't carry every feeder by day. <i>Daytime-only</i>: 8 h by day, staggered 08–16 / 09–17, the policy for solarised and technically feasible feeders (MSEDCL letter of 31.12.2025). Daytime-only for all 8 feeders needs a 7.84 MW substation, twice the 3.92 MW cap, so it is compared on that bigger substation, against CropClock given the same capacity.</li>
+        <li><b>Scheduler.</b> Most water-stressed feeder first; each of its hours goes where the day-ahead solar forecast has the most room left after load already placed, never more feeders than the substation carries; once the sun is used up, hours go nearest daylight.</li>
         <li><b>Kharif.</b> Monsoon cloud left ~3 usable Sentinel-2 passes, so kharif uses the FAO-56 soybean stage calendar. Its farmer waters defensively: a fixed 60 mm every 12 days (Tier B). Rabi uses an ET-optimal farmer (Tier A, no behavioural assumption).</li>
         <li><b>Limits.</b> Feeder command areas are approximated as 500 ha squares: DISCOMs hold the real feeder→field mapping. Outputs are feeder-level aggregates, never plot-level claims.</li>
       </ul>
@@ -206,6 +207,7 @@ function drawKpis() {
     ["Subsidy avoided", `₹${fmt(h.subsidy_saved_lakh_rs, 1)} lakh`, `at ₹${SIM.params.cost_of_supply_rs_kwh}/kWh cost of supply`],
     ["Pumping at night", `${fmt(c.night_share_pct, 1)}%`, `<b>from ${fmt(r.night_share_pct, 1)}%</b> under the rota (19:00–06:00)`],
     ["Pump energy from solar", `${fmt(c.solar_share_pct, 1)}%`, `<b>from ${fmt(r.solar_share_pct, 1)}%</b>, same solar plants`],
+    ["vs MSEDCL daytime-only", `−${fmt(h.vs_daytime_pct_saved, 1)}%`, `<b>−${fmt(h.vs_daytime_mwh_saved)} MWh</b> grid, on a substation big enough for daytime supply`],
   ];
   $("#kpis").innerHTML = tiles.map(([l, v, d]) =>
     `<div class="card kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="delta">${d}</div></div>`).join("");
@@ -408,12 +410,14 @@ function drawTable() {
     ["Water lost below root zone", "deep_percolation_mm", v => `${fmt(v, 1)} mm`],
     ["Irrigations deferred for rain", "deferrals", v => fmt(v)],
   ];
-  $("#results").innerHTML = `<thead><tr><th></th><th>MSEDCL rota</th><th>Scheduler only</th><th>CropClock</th></tr></thead><tbody>` +
-    rows.map(([l, k, f]) => `<tr><td>${l}</td>${["rota", "scheduler", "cropclock"].map(r => `<td>${f(S[r].summary[k])}</td>`).join("")}</tr>`).join("") +
+  const cap = `${fmt(SIM.params.max_on * SIM.params.feeder_kw / 1000, 2)} MW`, big = `${fmt(SIM.params.max_on_daytime * SIM.params.feeder_kw / 1000, 2)} MW`;
+  $("#results").innerHTML = `<thead><tr><th></th><th colspan="3">Substation ${cap}</th><th colspan="2">Substation ${big}</th></tr>` +
+    `<tr><th></th><th>MSEDCL rota</th><th>Scheduler only</th><th>CropClock</th><th>MSEDCL daytime-only</th><th>CropClock</th></tr></thead><tbody>` +
+    rows.map(([l, k, f]) => `<tr><td>${l}</td>${["rota", "scheduler", "cropclock", "daytime", "cropclock_8"].map(r => `<td>${f(S[r].summary[k])}</td>`).join("")}</tr>`).join("") +
     `</tbody>`;
   $("#tiernote").textContent = S.farmer === "et"
-    ? "Tier A: the farmer irrigates only when the soil reaches the FAO-56 trigger in all three runs. Total pumping is identical; only the timing changes."
-    : "Tier B: the farmer waters defensively (60 mm every 12 days) in all three runs. Rain-skip holds back the feeder when the 48 h forecast says ≥15 mm.";
+    ? "Tier A: the farmer irrigates only when the soil reaches the FAO-56 trigger in every run. Total pumping is identical; only the timing changes."
+    : "Tier B: the farmer waters defensively (60 mm every 12 days) in every run. Rain-skip holds back the feeder when the 48 h forecast says ≥15 mm.";
 }
 
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => SIM && pickSeason(season));
